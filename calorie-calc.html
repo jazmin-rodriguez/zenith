@@ -1,0 +1,33 @@
+{% extends "base.html" %} {%block title %}Calculator{% endblock %}
+
+{%block link%}<link rel="stylesheet" href="{{ url_for('static', filename='css/calcstyle.css') }}"/>{%endblock%}
+{% block content %}
+<style>
+    body{
+        background-image:url("{{ url_for('static', filename='img/Zenith_app_background.png') }}")
+    }
+</style>
+<div class="calculator-container">
+    <h1>Calorie Calculator</h1>
+    <form action="{{ url_for('calc.calc') }}" method="post">
+        {{ form.csrf_token }}
+        <div>
+            {{ form.ingredients.label }}
+            {{ form.ingredients }}
+        </div>
+        <div>
+            {{ form.submit }}
+        </div>
+    </form>
+
+    {% if calorie_data %}
+    <h2>Calorie Results:</h2>
+    <p>Total Calories for input: {{ calorie_data }} kcal</p>
+{% else %}
+    <p>No calorie data available or an error occurred.</p>
+{% endif %}
+
+
+</div>
+
+{% endblock %}

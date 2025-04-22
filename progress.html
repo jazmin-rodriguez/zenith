@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %} Progress {% endblock %}
+
+{% block link %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/progress.css') }}">
+{% endblock %}
+
+{% block content %}
+<div id="content">
+    <div class="main-content">
+        <!-- Accomplishments Section -->
+        <div class="slider-container">
+            <button class="prev" onclick="moveSlide(-1, '.slider')">&#10094;</button>
+            <div class="slider">
+                {% if workouts %}
+                    {% for workout in workouts %}
+                        <div class="slide accomplishment">
+                            {{ workout }}
+                            <button class="undo-btn" onclick="undoGoal(this)">X</button>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="slide accomplishment">No workouts yet!</div>
+                {% endif %}
+            </div>
+            <button class="next" onclick="moveSlide(1, '.slider')">&#10095;</button>
+        </div>
+        
+
+        <!-- Still Need to Do Section -->
+        <div class="article future">
+            <h1>STILL NEED TO DO!</h1>
+            <div class="slider-container">
+                <button class="prev" onclick="moveSlide(-1, '.future-slider')">&#10094;</button>
+                <div class="slider future-slider">
+                    <div class="slide future-goal">
+                        Goal 4 <input type="checkbox" class="move-checkbox" onclick="moveToAccomplishments(this)">
+                    </div>
+                    <div class="slide future-goal">
+                        Goal 5 <input type="checkbox" class="move-checkbox" onclick="moveToAccomplishments(this)">
+                    </div>
+                </div>
+                <button class="next" onclick="moveSlide(1, '.future-slider')">&#10095;</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rewards Section -->
+    <div class="reward">
+    <h1>🎉 REWARDS! 🎉</h1>
+    <p>You have:</p>
+    <p>Points: <span id="points">0</span></p> <!-- Larger points display -->
+    <div class="progress-container">
+        <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <p id="progress-goal">Next Goal at: <span id="next-goal">500</span> points</p>
+    <div id="congrats-message" style="margin-top: 20px;">
+        🎉 Congratulations! You've reached your goal! 🎉
+    </div>
+</div>
+</div>
+
+<script>
+    let points = 0;
+    let nextGoal = 500;
+
+    function updatePoints(amount) {
+        points += amount;
+        document.getElementById('points').innerText = points;
+        updateProgressBar(points);
+
+        if (points >= nextGoal) {
+            displayCongratsMessage();
+        }
+    }
+
+    function updateProgressBar(points) {
+        const progressBar = document.getElementById('progress-bar');
+        const progress = Math.min((points / nextGoal) * 100, 100); // Cap progress at 100%
+        progressBar.style.width = `${progress}%`;
+    }
+
+    function displayCongratsMessage() {
+        const congratsMessage = document.getElementById('congrats-message');
+        congratsMessage.style.display = 'block';
+
+        // Hide the message after 3 seconds
+        setTimeout(() => {
+            congratsMessage.style.display = 'none';
+        }, 3000);
+
+        // Calculate leftover points
+        const leftoverPoints = points - nextGoal;
+
+        // Reset progress bar and increment goal
+        points = leftoverPoints;
+        nextGoal += 500;
+        document.getElementById('next-goal').innerText = nextGoal;
+
+        // Update progress bar and points display
+        document.getElementById('points').innerText = points;
+        updateProgressBar(points);
+    }
+
+    function moveSlide(step, sliderClass) {
+        const slides = document.querySelectorAll(sliderClass + ' .slide');
+        const totalSlides = slides.length;
+        const currentSlide = parseInt(sliderClass.dataset.current) || 0;
+        const newSlide = (currentSlide + step + totalSlides) % totalSlides;
+
+        document.querySelector(sliderClass).style.transform = `translateX(-${newSlide * 100}%)`;
+        sliderClass.dataset.current = newSlide;
+    }
+
+    function undoGoal(button) {
+        const goalItem = button.parentElement;
+        const futureGoalsSlider = document.querySelector('.future-slider');
+        goalItem.removeChild(button); // Remove the undo button
+        futureGoalsSlider.appendChild(goalItem);
+        goalItem.classList.remove('accomplishment');
+        goalItem.classList.add('future-goal');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.classList.add('move-checkbox');
+        checkbox.onclick = function () { moveToAccomplishments(this) };
+        goalItem.appendChild(checkbox);
+        updatePoints(-40); // Deduct points
+    }
+
+    function moveToAccomplishments(checkbox) {
+        const goalItem = checkbox.parentElement;
+        const accomplishmentsSlider = document.querySelector('.slider');
+        goalItem.removeChild(checkbox); // Remove the checkbox
+        accomplishmentsSlider.appendChild(goalItem);
+        goalItem.classList.remove('future-goal');
+        goalItem.classList.add('accomplishment');
+        const undoButton = document.createElement('button');
+        undoButton.classList.add('undo-btn');
+        undoButton.innerText = 'X';
+        undoButton.onclick = function () { undoGoal(this) };
+        goalItem.appendChild(undoButton);
+        updatePoints(40); // Add points
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const initialAccomplishments = document.querySelectorAll('.slider .accomplishment').length;
+        updatePoints(initialAccomplishments * 40);
+    });
+
+    // Function to dynamically add workouts to the slider
+function addWorkoutToProgress(workout) {
+    const slider = document.querySelector('.slider');
+    const slide = document.createElement('div');
+    slide.className = 'slide accomplishment';
+    slide.innerHTML = `${workout} <button class="undo-btn" onclick="undoGoal(this)">X</button>`;
+    slider.appendChild(slide);
+
+    // Update points
+    updatePoints(40); // Add points for completing a workout
+}
+
+// Example: Fetch saved workouts and dynamically add them (if not already passed via template)
+async function fetchSavedWorkouts(userId) {
+    try {
+        const userDocRef = doc(db, 'users_example', userId);
+        const docSnap = await getDoc(userDocRef);
+
+        if (docSnap.exists()) {
+            const userData = docSnap.data();
+            const savedWorkouts = userData.saved_generated_workouts || [];
+
+            savedWorkouts.forEach(workout => addWorkoutToProgress(workout));
+        } else {
+            console.error('No such document!');
+        }
+    } catch (error) {
+        console.error('Error fetching workouts:', error);
+    }
+}
+
+</script>
+
+
+{% endblock %}
+
